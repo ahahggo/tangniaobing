@@ -32,20 +32,27 @@ def split_words(test, dev, train, stop_word):
                 temp.append(j)
         split_test.append(temp)
     split_dev = []
+    dev_label=[]
     for i in range(len(dev)):
         temp = []
+
+        dev_label.append(int(dev[i][1]))
         for j in jieba.cut(dev[i][0]):
+
             if j not in stop_word:
                 temp.append(j)
         split_dev.append(temp)
     split_train = []
+    train_label=[]
     for i in range(len(train)):
         temp = []
+        train_label.append(int(train[i][1]))
         for j in jieba.cut(train[i][0]):
+
             if j not in stop_word:
                 temp.append(j)
         split_train.append(temp)
-    return split_test, split_dev, split_train
+    return split_test, split_dev, split_train, train_label, dev_label
 
 
 def stop_words():
@@ -61,9 +68,5 @@ def stop_words():
 def pre_processing():
     test, dev, train = read_data()  # 读取文件
     stop_word = stop_words()
-    split_test, split_dev, split_train = split_words(test, dev, train, stop_word)  # 分词
+    return split_words(test, dev, train, stop_word)  # 分词
 
-    # todo:
-    #     停用词
-    #     数据增强
-    return split_test, split_dev, split_train
