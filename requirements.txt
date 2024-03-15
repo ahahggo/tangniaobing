@@ -1,0 +1,5 @@
+jieba~=0.42.1
+numpy~=1.26.4
+pandas~=2.2.1
+torch~=2.2.1
+gensim~=4.3.2
