@@ -20,49 +20,38 @@ def embedding(test, dev, train, size=100):
         # 构建模型
         model = word2vec.Word2Vec(sentences, min_count=1, vector_size=size)
         model.save('./model/word2vec' + str(size) + '.bin')
-    return model.wv
+    return model.wv,len(model.wv.index_to_key)
 
 
-def data_loader(test, dev, train, train_label, dev_label, model):
-    padding = 15
-    train_data = []
-    for sentence in range(len(train)):
+def data_loader(test, dev, train, train_label, dev_label, model, padding=15,w2v_size=100, batch_size=64):
+    def pad_and_transform(data, padding_size):
         temp = []
-        for word in train[sentence]:
-            temp.append(list(model[word]))
-        for i in range(padding - len(temp)):
-            temp.append(list(np.zeros(200)))
+        for sentence in data:
+            padded_sentence = [list(model[word]) for word in sentence]
+            while len(padded_sentence) < padding_size:
+                padded_sentence.append(list(np.zeros(w2v_size)))
+            temp.append(np.array(padded_sentence))
+        # 返回二维numpy数组，而不是包含多个一维数组的列表
+        return np.stack(temp)
 
-        train_data.append(temp)
+    # 一次处理训练、验证和测试数据
+    train_data = pad_and_transform(train, padding)
+    dev_data = pad_and_transform(dev, padding)
+    test_data = pad_and_transform(test, padding)
 
-    dev_data = []
-    for sentence in range(len(dev)):
-        temp = []
-        for word in dev[sentence]:
-            temp.append(model[word])
-        for i in range(padding - len(temp)):
-            temp.append(list(np.zeros(200)))
-        dev_data.append(temp)
-    test_data = []
-    for sentence in range(len(test)):
-        temp = []
-        for word in test[sentence]:
-            temp.append(model[word])
-        for i in range(padding - len(temp)):
-            temp.append(list(np.zeros(200)))
-        test_data.append(temp)
+    # 将numpy数组转换为torch张量
+    x_train = torch.tensor(train_data, dtype=torch.float32)
+    y_train = torch.tensor(train_label)
+    train_dataset = TensorDataset(x_train, y_train)
+    train_data_loader = DataLoader(train_dataset, batch_size=batch_size)
 
-    x = torch.tensor(train_data)
-    y = torch.tensor(train_label)
-    dataset = TensorDataset(x, y)
-    train_data = DataLoader(dataset, batch_size=64)
+    x_dev = torch.tensor(dev_data, dtype=torch.float32)
+    y_dev = torch.tensor(dev_label)
+    dev_dataset = TensorDataset(x_dev, y_dev)
+    dev_data_loader = DataLoader(dev_dataset, batch_size=batch_size)
 
-    x = torch.tensor(dev_data)
-    y = torch.tensor(dev_label)
-    dataset = TensorDataset(x, y)
-    dev_data = DataLoader(dataset, batch_size=64)
+    x_test = torch.tensor(test_data, dtype=torch.float32)
+    test_dataset = TensorDataset(x_test)
+    test_data_loader = DataLoader(test_dataset, batch_size=batch_size)
 
-    x = torch.tensor(test_data)
-    dataset = TensorDataset(x)
-    test_data = DataLoader(dataset, batch_size=64)
-    return train_data,dev_data,test_data
+    return train_data_loader, dev_data_loader, test_data_loader
