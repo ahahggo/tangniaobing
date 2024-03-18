@@ -1,6 +1,7 @@
 import preProcessing
 import wordEmbedding
 import model
+# from sklearn import report
 
 word2vec_size = 200  # word2vec向量维度
 batch_size = 64
@@ -14,5 +15,5 @@ if '__main__' == __name__:
                                                                 dev_label,
                                                                 word2vec_model, w2v_size=word2vec_size,
                                                                 batch_size=batch_size)
-    model.train(train_data, embedding_dim=word2vec_size, vacab_size=vocab_num, n_classes=n_classes,
+    model.train(train_data, dev_data, embedding_dim=word2vec_size, vacab_size=vocab_num, n_classes=n_classes,
                 num_epochs=num_epochs)
