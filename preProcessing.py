@@ -1,5 +1,27 @@
 # 文本预处理
 import jieba
+import numpy as np
+
+
+def to_one_hot(labels, num_classes):
+    """
+    将整数标签列表转换为one-hot编码形式。
+
+    参数：
+    labels (list or numpy.ndarray): 整数标签列表。
+    num_classes (int): 类别的总数。
+
+    返回：
+    numpy.ndarray: one-hot编码后的数组，形状为 `(len(labels), num_classes)`。
+    """
+
+    # 将列表转化为numpy数组
+    labels = np.array(labels)
+
+    # 创建一个对角线为类别个数的矩阵，其中对角线元素为1，其余位置为0
+    one_hot_labels = np.eye(num_classes)[labels]
+
+    return one_hot_labels
 
 
 def read_data():
@@ -32,7 +54,7 @@ def split_words(test, dev, train, stop_word):
                 temp.append(j)
         split_test.append(temp)
     split_dev = []
-    dev_label=[]
+    dev_label = []
     for i in range(len(dev)):
         temp = []
 
@@ -43,7 +65,7 @@ def split_words(test, dev, train, stop_word):
                 temp.append(j)
         split_dev.append(temp)
     split_train = []
-    train_label=[]
+    train_label = []
     for i in range(len(train)):
         temp = []
         train_label.append(int(train[i][1]))
@@ -69,4 +91,3 @@ def pre_processing():
     test, dev, train = read_data()  # 读取文件
     stop_word = stop_words()
     return split_words(test, dev, train, stop_word)  # 分词
-

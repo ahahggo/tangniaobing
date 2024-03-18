@@ -56,4 +56,13 @@ def data_loader(test, dev, train, train_label, dev_label, model):
     y = torch.tensor(train_label)
     dataset = TensorDataset(x, y)
     train_data = DataLoader(dataset, batch_size=64)
-    return train_data
+
+    x = torch.tensor(dev_data)
+    y = torch.tensor(dev_label)
+    dataset = TensorDataset(x, y)
+    dev_data = DataLoader(dataset, batch_size=64)
+
+    x = torch.tensor(test_data)
+    dataset = TensorDataset(x)
+    test_data = DataLoader(dataset, batch_size=64)
+    return train_data,dev_data,test_data
