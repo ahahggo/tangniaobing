@@ -3,6 +3,7 @@ import torch.nn as nn
 
 import torch.nn.functional as F
 
+
 class EarlyStopping:
     def __init__(self, patience=10, delta=0, verbose=False):
         """
@@ -46,30 +47,42 @@ class EarlyStopping:
         torch.save(model.state_dict(), 'checkpoint.pt')  # Save the model
         self.val_acc_max = val_acc
 
-class TextCNN(nn.Module):
-    def __init__(self, vacab_size, embedding_dim, num_filters, filter_sizes, output_dim, dropout_p):
-        super(TextCNN, self).__init__()
 
-        self.embedding = nn.Embedding(vacab_size, embedding_dim)
-        # 如果有预训练好的词向量，则可以加载到embedding层
+class Attention(nn.Module):
+    def __init__(self, hidden_size):
+        super(Attention, self).__init__()
+        self.hidden_size = hidden_size
+        self.attention = nn.Linear(hidden_size, 1)
 
+    def forward(self, lstm_output):
+        # lstm_output shape: (seq_len, batch, hidden_size)
+        attention_weights = F.softmax(self.attention(lstm_output), dim=0)
+        # context_vector shape after sum: (batch, hidden_size)
+        context_vector = torch.sum(attention_weights * lstm_output, dim=0)
+        return context_vector, attention_weights
+
+
+class TextCNNWithAttention(nn.Module):
+    def __init__(self, vacab_size, embedding_dim, num_filters, filter_sizes, output_dim, dropout_p, hidden_size):
+        super(TextCNNWithAttention, self).__init__()
         self.convs = nn.ModuleList([
             nn.Conv1d(embedding_dim, num_filters, fs) for fs in filter_sizes
         ])
-
-        self.fc = nn.Linear(len(filter_sizes) * num_filters, output_dim)
+        self.fc = nn.Linear(len(filter_sizes) * num_filters + hidden_size, output_dim)
         self.dropout = nn.Dropout(dropout_p)
+        self.attention = Attention(hidden_size)
+        self.lstm = nn.LSTM(embedding_dim, hidden_size, batch_first=True)
 
     def forward(self, text):
         embedded = text
-
+        lstm_output, (hidden, cell) = self.lstm(embedded.permute(1, 0, 2))
+        attention_output, _ = self.attention(lstm_output)
         conved = [F.relu(conv(embedded.permute(0, 2, 1))) for conv in self.convs]
         pooled = [F.max_pool1d(conv, conv.shape[2]).squeeze(2) for conv in conved]
-
-        cat = torch.cat(pooled, dim=1)
+        cat = torch.cat(pooled + [attention_output], dim=1)
         dropout = self.dropout(cat)
-
         return self.fc(dropout)
+
 
 def evaluate(model, data_loader, criterion):
     model.eval()  # Set model to evaluation mode
@@ -93,6 +106,7 @@ def evaluate(model, data_loader, criterion):
 
     return avg_accuracy, avg_loss
 
+
 def train(train_data, dev_data, embedding_dim,  # 根据实际情况替换为实际的词向量维度大小
           vacab_size,  # word2vec词汇表大小
           n_classes,  # 类别数量，根据您的多分类任务定义
@@ -100,20 +114,21 @@ def train(train_data, dev_data, embedding_dim,  # 根据实际情况替换为实
           ):
     # 参数设定
     num_filters = 100
-    filter_sizes = [4, 5, 6]
-    dropout_p = 0.1
+    filter_sizes = [3, 6, 9]
+    dropout_p = 0.02
+    learning_rate = 0.005
 
-    model = TextCNN(vacab_size, embedding_dim, num_filters, filter_sizes, n_classes, dropout_p)
+    model = TextCNNWithAttention(vacab_size, embedding_dim, num_filters, filter_sizes, n_classes, dropout_p,hidden_size=200)
 
     # 初始化优化器和损失函数
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.CrossEntropyLoss()
 
     total_loss = 0.0
     total_accuracy = 0.0
     total_samples = 0
     # 初始化earlystopping
-    early_stopping = EarlyStopping(patience=10, delta = 0.001, verbose=False)
+    early_stopping = EarlyStopping(patience=10, delta=0.001, verbose=False)
 
     for epoch in range(num_epochs):
         for inputs, labels in train_data:
@@ -135,15 +150,16 @@ def train(train_data, dev_data, embedding_dim,  # 根据实际情况替换为实
         avg_loss = total_loss / len(train_data.dataset)
         avg_accuracy = total_accuracy / total_samples
         dev_accuracy, dev_loss = evaluate(model, dev_data, criterion)
-        print(f'Epoch [{epoch + 1}/{num_epochs}], , Training Loss: {avg_loss:.4f}, Dev Acc: {dev_accuracy * 100:.2f}%')
+        print(
+            f'Epoch [{epoch + 1}/{num_epochs}], Train Acc: {avg_accuracy * 100:.2f}% , Training Loss: {avg_loss:.4f}, Dev Acc: {dev_accuracy * 100:.2f}%')
         # 调用early_stopping对象进行检查，注意这里传递的是dev_accuracy
 
-        early_stopping(dev_accuracy, model)
-
-        # 检查是否需要早停
-        if early_stopping.early_stop:
-            print("Early stopping")
-            break
+        # early_stopping(dev_accuracy, model)
+        #
+        # # 检查是否需要早停
+        # if early_stopping.early_stop:
+        #     print("Early stopping")
+        #     break
         # 重置累计损失、准确率和样本数以准备下一个epoch
         total_loss = 0.0
         total_accuracy = 0.0

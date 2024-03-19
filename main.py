@@ -3,9 +3,9 @@ import wordEmbedding
 import model
 # from sklearn import report
 
-word2vec_size = 200  # word2vec向量维度
+word2vec_size = 300  # word2vec向量维度
 batch_size = 64
-num_epochs = 20
+num_epochs = 50
 n_classes = 6
 
 if '__main__' == __name__:
