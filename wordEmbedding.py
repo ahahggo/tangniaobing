@@ -51,7 +51,7 @@ def data_loader(test, dev, train, train_label, dev_label, model, padding=15,w2v_
     dev_data_loader = DataLoader(dev_dataset, batch_size=batch_size)
 
     x_test = torch.tensor(test_data, dtype=torch.float32)
-    test_dataset = TensorDataset(x_test)
-    test_data_loader = DataLoader(test_dataset, batch_size=batch_size)
+    # test_dataset = TensorDataset(x_test)
+    test_data_loader = DataLoader(x_test, batch_size=batch_size)
 
     return train_data_loader, dev_data_loader, test_data_loader

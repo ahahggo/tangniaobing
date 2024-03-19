@@ -9,11 +9,8 @@ class EarlyStopping:
         """
         Args:
             patience (int): How long to wait after last time validation accuracy stopped improving.
-                            Default: 3
             delta (float): Minimum change in the monitored quantity to qualify as an improvement.
-                            Default: 0
             verbose (bool): If True, prints a message for each validation accuracy improvement.
-                            Default: False
         """
         self.patience = patience
         self.verbose = verbose
@@ -23,12 +20,11 @@ class EarlyStopping:
         self.val_acc_max = float('-inf')
         self.delta = delta
 
-    def __call__(self, val_acc, model):
+    def __call__(self, val_acc):
         score = val_acc
 
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(val_acc, model)
         elif score < self.best_score + self.delta:
             self.counter += 1
             if self.verbose:
@@ -37,15 +33,7 @@ class EarlyStopping:
                 self.early_stop = True
         else:
             self.best_score = score
-            self.save_checkpoint(val_acc, model)
-            self.counter = 0
-
-    def save_checkpoint(self, val_acc, model):
-        """Saves model when validation accuracy increases."""
-        if self.verbose:
-            print(f'Validation accuracy increased ({self.val_acc_max:.6f} --> {val_acc:.6f}).  Saving model ...')
-        torch.save(model.state_dict(), 'checkpoint.pt')  # Save the model
-        self.val_acc_max = val_acc
+            self.counter = 0  # reset counter if validation accuracy has improved
 
 
 class Attention(nn.Module):
@@ -106,17 +94,47 @@ def evaluate(model, data_loader, criterion):
 
     return avg_accuracy, avg_loss
 
+import torch
 
-def train(train_data, dev_data, embedding_dim,  # 根据实际情况替换为实际的词向量维度大小
+def predict(data_loader, model, checkpoint_save_path, if_test = True):
+    # 加载模型
+    model.load_state_dict(torch.load(checkpoint_save_path))
+    model.eval()
+
+    # 存储预测结果
+    predictions = []
+    probabilities = []
+    if if_test:
+        with torch.no_grad():  # 不更新权重
+            for inputs in data_loader:
+                inputs = inputs.to(torch.float)
+                outputs = model(inputs)
+                prob, predicted_labels = torch.max(outputs, dim=1)
+                predictions.extend(predicted_labels)
+                probabilities.extend(prob.squeeze().tolist())  # 压缩并转为列表形式
+    else:
+        with torch.no_grad():  # 不更新权重
+            for inputs, labels in data_loader:
+                inputs = inputs.to(torch.float)
+                outputs = model(inputs)
+                prob, predicted_labels = torch.max(outputs, dim=1)
+                predictions.extend(predicted_labels)
+                probabilities.extend(prob.squeeze().tolist())  # 压缩并转为列表形式
+
+    return predictions, probabilities
+
+def train(train_data, dev_data,
+          embedding_dim,  # 根据实际情况替换为实际的词向量维度大小
           vacab_size,  # word2vec词汇表大小
           n_classes,  # 类别数量，根据您的多分类任务定义
-          num_epochs=10
+          num_epochs=10,
+          num_filters=100,
+          filter_sizes=[3, 6, 9],
+          dropout_p=0.02,
+          learning_rate=0.005,
+          checkpoint_save_path = 'checkpoint/checkpoint.pt' #断点储存路径
           ):
     # 参数设定
-    num_filters = 100
-    filter_sizes = [3, 6, 9]
-    dropout_p = 0.02
-    learning_rate = 0.005
 
     model = TextCNNWithAttention(vacab_size, embedding_dim, num_filters, filter_sizes, n_classes, dropout_p,hidden_size=200)
 
@@ -152,14 +170,17 @@ def train(train_data, dev_data, embedding_dim,  # 根据实际情况替换为实
         dev_accuracy, dev_loss = evaluate(model, dev_data, criterion)
         print(
             f'Epoch [{epoch + 1}/{num_epochs}], Train Acc: {avg_accuracy * 100:.2f}% , Training Loss: {avg_loss:.4f}, Dev Acc: {dev_accuracy * 100:.2f}%')
-        # 调用early_stopping对象进行检查，注意这里传递的是dev_accuracy
 
-        # early_stopping(dev_accuracy, model)
-        #
-        # # 检查是否需要早停
-        # if early_stopping.early_stop:
-        #     print("Early stopping")
-        #     break
+        # Early stopping logic and save best model
+        early_stopping(dev_accuracy)
+        if early_stopping.best_score == dev_accuracy:
+            # Save the model only when validation accuracy improves
+            torch.save(model.state_dict(), checkpoint_save_path)
+            # print(f"Validation accuracy improved, saving model to {checkpoint_save_path}")
+        elif early_stopping.early_stop:
+            print("Early stopping")
+            break  # Exit from the training loop
+            
         # 重置累计损失、准确率和样本数以准备下一个epoch
         total_loss = 0.0
         total_accuracy = 0.0
