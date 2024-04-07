@@ -120,7 +120,7 @@ def train_model(train_loader, dev_loader,
            for batch in dev_loader:
                input_ids, attention_mask, labels = batch['input_ids'], batch['attention_mask'], batch['labels']
                input_ids, attention_mask, labels = input_ids.to(device), attention_mask.to(device), labels.to(device)
-               outputs = model(input_ids,attention_mask, labels)
+               outputs = model(input_ids,attention_mask, labels = labels)
                logits = outputs.logits
                predictions = torch.argmax(logits,dim=1).cpu().numpy()
                all_predictions.extend(predictions)
@@ -140,16 +140,16 @@ def train_model(train_loader, dev_loader,
            print('Early Stopping')
            break
       #打印模型最佳的准确度
-       print(f'Epoch {best_epoch_index} has the best validation accuracy:{early_stopping.best_score:.4f}')
-       # 打印loss 下降趋势图
-       plt.plot()
-       plt.plot(range(1,len(epoch_loss)+1),epoch_loss)
-       # 在最优accuracy处添加红点
-       plt.scatter(best_epoch_index, epoch_loss[best_epoch_index-1], color='red', marker = 'o')
-       plt.xlabel('Epoch')
-       plt.ylabel('Loss')
-       plt.title('Training Loss Over Epoch')
-       plt.savefig('pics/loss_plot_bert_'+date+'.png')
+   print(f'Epoch {best_epoch_index} has the best validation accuracy:{early_stopping.best_score:.4f}')
+   # 打印loss 下降趋势图
+   plt.plot()
+   plt.plot(range(1,len(epoch_loss)+1),epoch_loss)
+   # 在最优accuracy处添加红点
+   plt.scatter(best_epoch_index, epoch_loss[best_epoch_index-1], color='red', marker = 'o')
+   plt.xlabel('Epoch')
+   plt.ylabel('Loss')
+   plt.title('Training Loss Over Epoch')
+   plt.savefig('pics/loss_plot_bert_'+date+'.png')
 
 if __name__=="__main__":
     # model_path = sys.argv[1]
@@ -157,14 +157,14 @@ if __name__=="__main__":
     # checkpoint_save_path = sys.argv[3]
     model_path = '/Users/yujinge/Documents/model/chinese-bert-wwm-ext'
     data_path = 'data/'
-    checkpoint_save_path = 'checkpoint/'
+    checkpoint_save_path = 'checkpoint/bert_'+date+'.pth'
     train_data = pd.read_csv(os.path.join(data_path,'train.csv'))
     dev_data = pd.read_csv(os.path.join(data_path,'dev.csv'))
 
     # train_data, dev_data = train_test_split(data, test_size=0.2, random_state=42, stratify=data['class'])
     max_len = 32 # z最大的token为38
     num_epochs = 50
-    batch_size = 32
+    batch_size = 512
     num_labels = len(Counter(train_data['label']))
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     train_dataset = ClassDataset(train_data['content'],train_data['label'], tokenizer, max_len)
