@@ -1,6 +1,7 @@
 # 文本预处理
 import jieba
 import numpy as np
+import pandas as pd
 
 
 def to_one_hot(labels, num_classes):
@@ -89,5 +90,12 @@ def stop_words():
 
 def pre_processing():
     test, dev, train = read_data()  # 读取文件
+    test = pd.DataFrame(test,columns=['content'])
+    dev = pd.DataFrame(dev,columns=['content','label'])
+    train = pd.DataFrame(train,columns=['content','label'])
+    test.to_csv('data/test.csv', index=False)
+    train.to_csv('data/train.csv',index=False)
+    dev.to_csv('data/dev.csv',index=False)
+
     stop_word = stop_words()
     return split_words(test, dev, train, stop_word)  # 分词
