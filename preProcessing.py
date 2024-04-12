@@ -29,6 +29,7 @@ def read_data():
     dev = []
     test = []
     train = []
+    class_dict = {}
     with open("./data/test.txt", "r", encoding='utf-8') as f:
         for line in f.readlines():
             line = line.strip('\n')  # 去掉列表中每一个元素的换行符
@@ -43,7 +44,12 @@ def read_data():
             line = line.strip('\n')  # 去掉列表中每一个元素的换行符
             line = line.split('\t')
             train.append(line)
-    return test, dev, train
+    with open("./data/class.txt", "r", encoding='utf-8') as f:
+        for line in f.readlines():
+            line = line.strip('\n')  # 去掉列表中每一个元素的换行符
+            line = line.split('   ')
+            class_dict[line[1]] = line[0]
+    return test, dev, train, class_dict
 
 
 def split_words(test, dev, train, stop_word):
@@ -89,10 +95,11 @@ def stop_words():
 
 
 def pre_processing():
-    test, dev, train = read_data()  # 读取文件
+    test, dev, train, class_dict = read_data()  # 读取文件
     test = pd.DataFrame(test,columns=['content'])
     dev = pd.DataFrame(dev,columns=['content','label'])
     train = pd.DataFrame(train,columns=['content','label'])
+    train['class'] = train['label'].map(class_dict)
     test.to_csv('data/test.csv', index=False)
     train.to_csv('data/train.csv',index=False)
     dev.to_csv('data/dev.csv',index=False)
